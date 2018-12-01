@@ -64,37 +64,36 @@ app.get('/api/shorturl/:link_id', function (req, res) {
         var jsonResponse = {
             error: 'invalid URL'
         };
-        dns.lookup(originalUrl, function (err, address, family) {
+        dns.lookup(originalUrl.split('://')[1], function (err, address, family) {
             console.log("url", err, address, family);
-            if (!err) {
-                console.log('result', !err);
-                var maxUrl = 0;
-                Link.find({}).sort('-shortenedUrl').limit(1).exec(function (err, result) {
-                    if (err) {
-                        errorOccurred(res);
-                    }
-                    if (result) {
-                        maxUrl = result.shortenedUrl++;
-                    } else {
-                        maxUrl = 1;
-                    }
-                });
-                var link = new Link({
-                    originalUrl: originalUrl,
-                    shortenedUrl: maxUrl
-                });
-                link.save(function (err, result) {
-                    if (err) {
-                        errorOccurred(res);
-                    }
-                    jsonResponse = {
-                        original_url: result.originalUrl,
-                        shortened_url: result.shortenedUrl
-                    };
-                }).then(function () {
-                    res.json(jsonResponse);
-                });
+            if (err) {
+                console.log('sending error');
+                res.status(500).send({ jsonResponse: jsonResponse }).end();
             }
+            var maxUrl = 0;
+            Link.find({}).sort('-shortenedUrl').limit(1).exec(function (err, result) {
+                if (err) {
+                    errorOccurred(res);
+                }
+                if (result) {
+                    maxUrl = result.shortenedUrl++;
+                } else {
+                    maxUrl = 1;
+                }
+            });
+            var link = new Link({
+                originalUrl: originalUrl,
+                shortenedUrl: maxUrl
+            });
+            link.save(function (err, result) {
+                if (err) {
+                    errorOccurred(res);
+                }
+                res.json({
+                    original_url: result.originalUrl,
+                    shortened_url: result.shortenedUrl
+                });
+            });
         });
     } else {
         errorOccurred(res);
