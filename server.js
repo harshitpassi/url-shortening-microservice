@@ -5,6 +5,7 @@ var mongo = require('mongodb');
 var mongoose = require('mongoose');
 var bodyParser = require('body-parser');
 var dns = require('dns');
+var URL = require('url').URL;
 
 var cors = require('cors');
 
@@ -64,34 +65,40 @@ app.get('/api/shorturl/:link_id', (req, res) => {
         let jsonResponse = {
             error: 'invalid URL'
         };
-        dns.lookup(originalUrl.split('://')[1], (err, address, family) => {
-            console.log("url", err, address, family);
+        let hostName = new URL(originalUrl).hostname;
+        dns.lookup(hostName, (err, address, family) => {
             if (err) {
                 console.log('sending error');
                 res.status(500).send({ jsonResponse }).end();
             }
             let maxUrl = 0;
-            Link.find({}).sort('-shortenedUrl').limit(1).exec((err, result) => {
+            Link.find({
+                shortenedUrl: { $gte: 0 }
+            }).sort('-shortenedUrl').limit(1).exec((err, result) => {
                 if (err) {
                     errorOccurred(res);
                 }
-                if (result) {
-                    maxUrl = result.shortenedUrl++;
+                console.log('result', result);
+                if (result.length > 0) {
+                    console.log('here1')
+                    maxUrl = result[0].shortenedUrl + 1;
                 } else {
+                    console.log('here');
                     maxUrl = 1;
                 }
-            });
-            var link = new Link({
-                originalUrl: originalUrl,
-                shortenedUrl: maxUrl
-            });
-            link.save((err, result) => {
-                if (err) {
-                    errorOccurred(res);
-                }
-                res.json({
-                    original_url: result.originalUrl,
-                    shortened_url: result.shortenedUrl
+                console.log('value', maxUrl);
+                var link = new Link({
+                    originalUrl: originalUrl,
+                    shortenedUrl: maxUrl
+                });
+                link.save((err, result) => {
+                    if (err) {
+                        errorOccurred(res);
+                    }
+                    res.json({
+                        original_url: result.originalUrl,
+                        shortened_url: maxUrl
+                    });
                 });
             });
         })
